@@ -1,21 +1,22 @@
-import asyncio
 import unittest
 from gamstcrew import EventPacket, RuntimeDescriptor, RuntimeManager, TemporalAligner
 
 class Adapter:
-    def __init__(self): self.items=[]
+    def __init__(self): self.items=[]; self.stopped=False
     async def start(self): pass
-    async def stop(self): pass
+    async def stop(self): self.stopped=True
     async def submit(self,p): self.items.append(p)
     def health(self): return {}
 
-def packet(i,cut=None): return EventPacket(str(i),'s','u','audio','event','mono',i,i,None,None,i,i, i, False,0,'fixture','1',{'i':i},query_cutoff_ms=cut)
+def packet(i,cut=None): return EventPacket(str(i),'s','u','audio','event','mono',i,i,None,None,i,i,i,False,0,'fixture','1',{'i':i},query_cutoff_ms=cut)
 
 class Foundation(unittest.IsolatedAsyncioTestCase):
     async def test_manager_bounded_health(self):
         m=RuntimeManager(capacity=2); a=Adapter(); await m.register('x',a,RuntimeDescriptor('x','mac','fixture','1','MIT',True))
         for i in range(5): await m.submit('x',packet(i))
         self.assertEqual(m.health('x').dropped,3); await m.close('x')
+        self.assertTrue(a.stopped)
+
     async def test_temporal_clock_cutoff_revision(self):
         t=TemporalAligner(min_samples=3)
         for i in range(3): t.add_clock_sample('mono',i*100,i*100+5)
