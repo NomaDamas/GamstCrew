@@ -26,7 +26,6 @@ class EventPacket:
     freshness_ms: int = 5000; evidence_ids: tuple[str, ...] = ()
     source_spans: tuple[dict[str, Any], ...] = (); query_cutoff_ms: int | None = None
     monotonic_capture_ms: int | None = None; supersedes: str | None = None
-
     def __post_init__(self):
         for n in ('event_id','stream_id','subject_id','modality','event_type','source_clock','provider','model_revision'): _text(getattr(self,n),n)
         ints = ('capture_timestamp_ms','receive_timestamp_ms','start_ms','end_ms','sequence','revision','freshness_ms')
@@ -35,7 +34,6 @@ class EventPacket:
         if self.query_cutoff_ms is not None and self.capture_timestamp_ms > self.query_cutoff_ms: raise ValueError('post-query evidence')
         if len(self.evidence_ids) > 64 or len(self.source_spans) > 64: raise ValueError('evidence bound exceeded')
         _safe(self.value); _safe(self.uncertainty); _safe(list(self.source_spans))
-
     def json(self):
         d = asdict(self); d['evidence_ids'] = list(self.evidence_ids); d['source_spans'] = list(self.source_spans)
         raw = json.dumps(d, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode()
@@ -45,6 +43,9 @@ class EventPacket:
 @dataclass(frozen=True)
 class RuntimeDescriptor:
     name: str; profile: str; provider: str; model_revision: str; license: str; ready: bool = False
+    def __post_init__(self):
+        for value, name in ((self.name,'runtime name'),(self.profile,'runtime profile'),(self.provider,'provider'),(self.model_revision,'model revision'),(self.license,'license')): _text(value,name)
+        if type(self.ready) is not bool: raise ValueError('ready must be boolean')
 
 @dataclass
 class HealthSnapshot:
