@@ -49,8 +49,12 @@ class TemporalAligner:
 
     def accept(self, event):
         old = self.events.get(event.event_id)
+        if old and (old.clock_id, old.clock_epoch) != (event.clock_id, event.clock_epoch):
+            raise ValueError("event identity cannot cross clock epochs")
         if old and event.revision <= old.revision:
             return False
+        if event.revision > 0 and (not old or event.supersedes != old.event_id):
+            raise ValueError("newer revision must supersede the previous event")
         self.events[event.event_id] = event
         return True
 

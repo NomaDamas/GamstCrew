@@ -67,6 +67,16 @@ class Foundation(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(t.eligible(1)), 1)
         self.assertEqual(len(t.eligible(0)), 0)
 
+    async def test_revision_lineage_and_clock_epoch(self):
+        from dataclasses import replace
+        aligner = TemporalAligner()
+        self.assertTrue(aligner.accept(packet(1)))
+        with self.assertRaises(ValueError):
+            aligner.accept(replace(packet(1), revision=1))
+        self.assertTrue(aligner.accept(replace(packet(1), revision=1, supersedes='1')))
+        with self.assertRaises(ValueError):
+            aligner.accept(replace(packet(1), revision=2, supersedes='1', clock_epoch='restarted'))
+
     def test_clock_identity_survives_packet_serialization(self):
         from dataclasses import replace
         import json
