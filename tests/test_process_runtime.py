@@ -7,6 +7,7 @@ from gamstcrew.packet import EventPacket, RuntimeDescriptor
 from gamstcrew.process_runtime import ProcessRuntime
 
 SCRIPT = "import sys,json; print(json.dumps({'type':'ready'}),flush=True); [print(json.dumps({'accepted':True}),flush=True) for line in sys.stdin]"
+OVERSIZED_RESPONSE_SCRIPT = "import sys,json; print(json.dumps({'type':'ready'}),flush=True); next(sys.stdin); print('x'*1100,flush=True)"
 
 
 def packet():
@@ -67,6 +68,19 @@ class ProcessRuntimeTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
                 await runtime.submit(tampered)
             self.assertEqual(runtime.health()["integrity_rejected"], 1)
+        finally:
+            await runtime.stop()
+
+    async def test_oversized_response_is_rejected_before_buffer_growth(self):
+        runtime = ProcessRuntime(
+            (sys.executable, "-u", "-c", OVERSIZED_RESPONSE_SCRIPT),
+            RuntimeDescriptor("x", "mac", "fixture", "1", "MIT", True),
+            max_line=1024,
+        )
+        await runtime.start()
+        try:
+            with self.assertRaisesRegex(ValueError, "line exceeds line budget"):
+                await runtime.submit(packet())
         finally:
             await runtime.stop()
 

@@ -18,6 +18,16 @@ class ProcessRuntime:
     process: asyncio.subprocess.Process | None = None
     integrity_counter: PacketIntegrityCounter = field(default_factory=PacketIntegrityCounter)
 
+    async def _read_line(self):
+        try:
+            return await self.process.stdout.readuntil(b"\n")
+        except asyncio.LimitOverrunError as exc:
+            raise ValueError("runtime line exceeds line budget") from exc
+        except asyncio.IncompleteReadError as exc:
+            if not exc.partial:
+                return b""
+            raise ValueError("runtime returned a truncated line") from exc
+
     async def start(self):
         if not self.argv:
             raise ValueError("runtime argv cannot be empty")
@@ -26,9 +36,10 @@ class ProcessRuntime:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            limit=self.max_line,
         )
         try:
-            ready = await asyncio.wait_for(self.process.stdout.readline(), 5)
+            ready = await asyncio.wait_for(self._read_line(), 5)
             if not ready:
                 raise RuntimeError("runtime exited before readiness")
             message = json.loads(ready)
@@ -68,7 +79,7 @@ class ProcessRuntime:
             raise ValueError("runtime packet exceeds line budget")
         self.process.stdin.write(raw)
         await self.process.stdin.drain()
-        response = await asyncio.wait_for(self.process.stdout.readline(), 5)
+        response = await asyncio.wait_for(self._read_line(), 5)
         if not response:
             raise RuntimeError("runtime closed stdout")
         if len(response) > self.max_line:
