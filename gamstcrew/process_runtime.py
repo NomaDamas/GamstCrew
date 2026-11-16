@@ -60,15 +60,16 @@ class ProcessRuntime:
         if self.process is None:
             return
         process, self.process = self.process, None
-        if process.returncode is None:
-            process.terminate()
-            try:
-                await asyncio.wait_for(process.wait(), 2)
-            except asyncio.TimeoutError:
-                process.kill()
-                await process.wait()
-        elif process.returncode is None:
-            await process.wait()
+        try:
+            if process.returncode is None:
+                process.terminate()
+                try:
+                    await asyncio.wait_for(process.wait(), 2)
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
+        finally:
+            process._transport.close()
 
     def health(self):
         return {

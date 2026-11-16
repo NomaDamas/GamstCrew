@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from gamstcrew.launcher import launch_profile
 from gamstcrew.manager import RuntimeManager
@@ -24,10 +25,12 @@ class Launcher(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "profiles.json"
             path.write_text(json.dumps([profile]))
-            with self.assertRaises(RuntimeError):
-                await launch_profile(
-                    RuntimeManager(), path, "linux", [sys.executable, "-c", SCRIPT]
-                )
+            with patch("gamstcrew.launcher.profile") as host:
+                host.return_value.descriptor.return_value = {"os": "darwin", "accelerator": "mps"}
+                with self.assertRaises(RuntimeError):
+                    await launch_profile(
+                        RuntimeManager(), path, "linux", [sys.executable, "-c", SCRIPT]
+                    )
 
 
 if __name__ == "__main__":
