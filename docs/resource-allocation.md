@@ -36,5 +36,13 @@ accounting evidence, not OS-level usage measurements.
 reservation is made before adapter startup, released if startup fails, and
 released after adapter shutdown. `resource_telemetry()` returns the allocator
 view or `{ "enabled": false }` when no allocator is configured. Automatic
-resource resizing, cgroups/job objects, GPU process isolation and host usage
-sampling remain outside this foundation slice.
+resource resizing, GPU process isolation and host usage sampling remain outside
+this foundation slice. `HostLimitController` is an explicit opt-in seam for
+the host boundary. `mode="accounting"` (the default) performs no host
+mutation. On Linux with a caller-supplied writable cgroup-v2 root,
+`mode="strict"` can attach CPU and RAM limits before the provider is accepted;
+GPU/VRAM and missing controllers fail closed. `mode="best_effort"` reports
+`unsupported` or `unavailable` without pretending enforcement occurred.
+macOS and Windows currently report `unsupported` until native controllers are
+implemented. A fake cgroup fixture tests the file contract, but is not host
+acceptance evidence.

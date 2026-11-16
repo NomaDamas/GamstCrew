@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import json
+import platform
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 from .packet import (
@@ -8,6 +9,8 @@ from .packet import (
     MAX_PACKET_BYTES,
     PacketIntegrityCounter,
 )
+from .host_limits import HostLimitController, HostLimitError, HostLimitReport
+from .resources import ResourceRequest
 
 
 @dataclass
@@ -17,6 +20,20 @@ class ProcessRuntime:
     max_line: int = MAX_PACKET_BYTES
     process: asyncio.subprocess.Process | None = None
     integrity_counter: PacketIntegrityCounter = field(default_factory=PacketIntegrityCounter)
+    host_controller: HostLimitController | None = None
+    resource_request: ResourceRequest | None = None
+    host_limit_report: HostLimitReport | None = None
+
+    def configure_host_limits(self, controller: HostLimitController | None,
+                              request: ResourceRequest | None) -> None:
+        if controller is not None and not isinstance(controller, HostLimitController):
+            raise TypeError("host_controller must be a HostLimitController")
+        if request is not None and not isinstance(request, ResourceRequest):
+            raise TypeError("resource_request must be a ResourceRequest")
+        if self.process is not None:
+            raise RuntimeError("host limits must be configured before start")
+        self.host_controller = controller
+        self.resource_request = request
 
     async def _read_line(self):
         try:
@@ -39,6 +56,9 @@ class ProcessRuntime:
             limit=self.max_line,
         )
         try:
+            if self.host_controller is not None:
+                request = self.resource_request or ResourceRequest()
+                self.host_limit_report = self.host_controller.attach(self.process.pid, request)
             ready = await asyncio.wait_for(self._read_line(), 5)
             if not ready:
                 raise RuntimeError("runtime exited before readiness")
@@ -99,6 +119,17 @@ class ProcessRuntime:
                     process.kill()
                     await process.wait()
         finally:
+            if self.host_controller is not None and self.process is None:
+                try:
+                    self.host_limit_report = self.host_controller.detach(process.pid)
+                except HostLimitError as exc:
+                    # Shutdown must not mask the original startup/stop failure.
+                    self.host_limit_report = HostLimitReport(
+                        self.host_controller.mode,
+                        "unavailable",
+                        (self.host_controller.system or platform.system()).lower(),
+                        str(exc),
+                    )
             process._transport.close()
 
     def health(self):
@@ -106,4 +137,5 @@ class ProcessRuntime:
             "running": self.process is not None and self.process.returncode is None,
             "returncode": None if self.process is None else self.process.returncode,
             "integrity_rejected": self.integrity_counter.integrity_rejected,
+            "host_limits": None if self.host_limit_report is None else self.host_limit_report.as_dict(),
         }

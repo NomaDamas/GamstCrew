@@ -4,6 +4,7 @@ from collections import deque
 from typing import Protocol
 from .packet import EventPacket, HealthSnapshot
 from .resources import ResourceAllocator, ResourceRequest
+from .host_limits import HostLimitController
 
 
 class RuntimeAdapter(Protocol):
@@ -60,8 +61,13 @@ class RuntimeManager:
             self._drain(name), name="gamstcrew:" + name
         )
 
-    async def register_process(self, name, process_runtime, *, resources=None):
+    async def register_process(self, name, process_runtime, *, resources=None,
+                               host_controller=None):
         """Register an explicit subprocess runtime using descriptor metadata."""
+        if host_controller is not None and not isinstance(host_controller, HostLimitController):
+            raise TypeError("host_controller must be a HostLimitController")
+        if host_controller is not None:
+            process_runtime.configure_host_limits(host_controller, resources)
         return await self.register(
             name, process_runtime, process_runtime.descriptor, resources=resources
         )

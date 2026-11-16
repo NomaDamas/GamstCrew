@@ -7,7 +7,12 @@ GPU count and VRAM before a provider starts. A registration that would overcommi
 any dimension is rejected atomically; startup failure and normal close release
 the exact reservation token. `resource_telemetry()` exposes bounded reservation
 and rejection counters. This is accounting evidence supplied by deployment
-discovery, not host-level cgroup/job-object enforcement or live usage sampling.
+discovery. Host enforcement is separate and explicit: pass a
+`HostLimitController` to `register_process`; the default `accounting` mode is
+non-mutating, Linux cgroup-v2 strict mode fails closed when it cannot attach
+CPU/RAM limits, and unsupported macOS/Windows/GPU cases are surfaced in the
+health report rather than claimed as enforced. Real host acceptance remains a
+separate gate.
 
 ## Core provider runtime
 

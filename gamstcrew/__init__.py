@@ -20,6 +20,14 @@ from .resources import (
     ResourceReservation,
     ResourceUnavailable,
 )
+from .host_limits import (
+    HOST_LIMIT_MODES,
+    HostLimitController,
+    HostLimitError,
+    HostLimitReport,
+    HostLimitUnsupported,
+    HostLimitUnavailable,
+)
 
 __all__ = [
     "EventPacket",
@@ -41,4 +49,10 @@ __all__ = [
     "ResourceRequest",
     "ResourceReservation",
     "ResourceUnavailable",
+    "HOST_LIMIT_MODES",
+    "HostLimitController",
+    "HostLimitError",
+    "HostLimitReport",
+    "HostLimitUnsupported",
+    "HostLimitUnavailable",
 ]
