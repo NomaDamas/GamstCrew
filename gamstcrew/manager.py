@@ -4,16 +4,18 @@ from collections import deque
 from typing import Protocol
 from .packet import EventPacket, HealthSnapshot
 
+
 class RuntimeAdapter(Protocol):
     async def start(self): ...
     async def stop(self): ...
     async def submit(self, packet: EventPacket): ...
     def health(self): ...
 
+
 class RuntimeManager:
     def __init__(self, capacity=8):
         if type(capacity) is not int or capacity < 1:
-            raise ValueError('capacity must be positive')
+            raise ValueError("capacity must be positive")
         self.capacity = capacity
         self.runtimes = {}
         self.adapters = {}
@@ -25,14 +27,16 @@ class RuntimeManager:
 
     async def register(self, name, adapter, descriptor):
         if name in self.runtimes:
-            raise ValueError('runtime already registered')
+            raise ValueError("runtime already registered")
         await adapter.start()
         self.runtimes[name] = descriptor
         self.adapters[name] = adapter
         self.queues[name] = deque(maxlen=self.capacity)
         self.dropped[name] = 0
         self.errors[name] = []
-        self.tasks[name] = asyncio.create_task(self._drain(name), name='gamstcrew:' + name)
+        self.tasks[name] = asyncio.create_task(
+            self._drain(name), name="gamstcrew:" + name
+        )
 
     async def register_process(self, name, process_runtime):
         """Register an explicit subprocess runtime using descriptor metadata."""
@@ -42,7 +46,7 @@ class RuntimeManager:
         adapter = self.adapters[name]
         while name in self.runtimes:
             if not self.queues[name]:
-                await asyncio.sleep(.001)
+                await asyncio.sleep(0.001)
                 continue
             packet = self.queues[name].popleft()
             try:
@@ -75,4 +79,12 @@ class RuntimeManager:
 
     def health(self, name):
         descriptor = self.runtimes[name]
-        return HealthSnapshot(name, 'ready' if descriptor.ready else 'not_ready', len(self.queues[name]), self.capacity, self.dropped[name], errors=list(self.errors[name]), descriptor=descriptor)
+        return HealthSnapshot(
+            name,
+            "ready" if descriptor.ready else "not_ready",
+            len(self.queues[name]),
+            self.capacity,
+            self.dropped[name],
+            errors=list(self.errors[name]),
+            descriptor=descriptor,
+        )

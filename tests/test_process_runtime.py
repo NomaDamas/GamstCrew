@@ -56,14 +56,18 @@ class ProcessRuntimeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_manager_register_process_roundtrip(self):
         manager = RuntimeManager(capacity=2)
-        runtime = ProcessRuntime((sys.executable, '-u', '-c', SCRIPT), RuntimeDescriptor('x', 'mac', 'fixture', '1', 'MIT', True))
-        await manager.register_process('x', runtime)
+        runtime = ProcessRuntime(
+            (sys.executable, "-u", "-c", SCRIPT),
+            RuntimeDescriptor("x", "mac", "fixture", "1", "MIT", True),
+        )
+        await manager.register_process("x", runtime)
         try:
-            await manager.submit('x', packet())
-            await asyncio.sleep(.02)
-            self.assertTrue(manager.health('x').descriptor.ready)
+            await manager.submit("x", packet())
+            await asyncio.sleep(0.02)
+            self.assertTrue(manager.health("x").descriptor.ready)
         finally:
-            await manager.close('x')
+            await manager.close("x")
+
 
 if __name__ == "__main__":
     unittest.main()
