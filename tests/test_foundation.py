@@ -57,6 +57,17 @@ class Foundation(unittest.IsolatedAsyncioTestCase):
         await m.close("x")
         self.assertTrue(a.stopped)
 
+    async def test_failed_start_is_stopped(self):
+        adapter = Adapter()
+        async def fail():
+            raise RuntimeError('readiness failed')
+        adapter.start = fail
+        manager = RuntimeManager()
+        with self.assertRaises(RuntimeError):
+            await manager.register('x', adapter, RuntimeDescriptor('x', 'mac', 'fixture', '1', 'MIT', True))
+        self.assertTrue(adapter.stopped)
+        self.assertNotIn('x', manager.runtimes)
+
     async def test_temporal_clock_cutoff_revision(self):
         t = TemporalAligner(min_samples=3)
         for i in range(3):

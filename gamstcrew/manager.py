@@ -28,7 +28,11 @@ class RuntimeManager:
     async def register(self, name, adapter, descriptor):
         if name in self.runtimes:
             raise ValueError("runtime already registered")
-        await adapter.start()
+        try:
+            await adapter.start()
+        except BaseException:
+            await adapter.stop()
+            raise
         self.runtimes[name] = descriptor
         self.adapters[name] = adapter
         self.queues[name] = deque(maxlen=self.capacity)

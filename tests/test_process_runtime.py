@@ -65,8 +65,9 @@ class ProcessRuntimeTests(unittest.IsolatedAsyncioTestCase):
             await manager.submit("x", packet())
             await asyncio.sleep(0.02)
             self.assertTrue(manager.health("x").descriptor.ready)
+            runtime.process.terminate()
             await runtime.process.wait()
-            self.assertEqual(manager.health("x").status, "crashed")
+            self.assertEqual(manager.health("x").state, "crashed")
         finally:
             await manager.close("x")
 
