@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sys
 import unittest
 from gamstcrew import RuntimeManager
@@ -54,6 +55,21 @@ class ProcessRuntimeTests(unittest.IsolatedAsyncioTestCase):
             await runtime.start()
         await runtime.stop()
 
+    async def test_tampered_mapping_rejected_before_dispatch_and_counted(self):
+        runtime = ProcessRuntime(
+            (sys.executable, "-u", "-c", SCRIPT),
+            RuntimeDescriptor("x", "mac", "fixture", "1", "MIT", True),
+        )
+        await runtime.start()
+        try:
+            tampered = json.loads(packet().to_bytes())
+            tampered["value"]["x"] = 2
+            with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+                await runtime.submit(tampered)
+            self.assertEqual(runtime.health()["integrity_rejected"], 1)
+        finally:
+            await runtime.stop()
+
     async def test_manager_register_process_roundtrip(self):
         manager = RuntimeManager(capacity=2)
         runtime = ProcessRuntime(
@@ -68,6 +84,22 @@ class ProcessRuntimeTests(unittest.IsolatedAsyncioTestCase):
             runtime.process.terminate()
             await runtime.process.wait()
             self.assertEqual(manager.health("x").state, "crashed")
+        finally:
+            await manager.close("x")
+
+    async def test_manager_health_exposes_integrity_rejections(self):
+        manager = RuntimeManager(capacity=2)
+        runtime = ProcessRuntime(
+            (sys.executable, "-u", "-c", SCRIPT),
+            RuntimeDescriptor("x", "mac", "fixture", "1", "MIT", True),
+        )
+        await manager.register_process("x", runtime)
+        try:
+            tampered = json.loads(packet().to_bytes())
+            tampered["value"]["x"] = 2
+            await manager.submit("x", tampered)
+            await asyncio.sleep(0.02)
+            self.assertEqual(manager.health("x").integrity_rejected, 1)
         finally:
             await manager.close("x")
 

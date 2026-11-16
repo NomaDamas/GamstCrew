@@ -1,8 +1,13 @@
 from __future__ import annotations
 import asyncio
 import json
-from dataclasses import dataclass
-from .packet import EventPacket, MAX_PACKET_BYTES
+from dataclasses import dataclass, field
+from typing import Any, Mapping
+from .packet import (
+    EventPacket,
+    MAX_PACKET_BYTES,
+    PacketIntegrityCounter,
+)
 
 
 @dataclass
@@ -11,6 +16,7 @@ class ProcessRuntime:
     descriptor: object
     max_line: int = MAX_PACKET_BYTES
     process: asyncio.subprocess.Process | None = None
+    integrity_counter: PacketIntegrityCounter = field(default_factory=PacketIntegrityCounter)
 
     async def start(self):
         if not self.argv:
@@ -35,14 +41,27 @@ class ProcessRuntime:
             await self.stop()
             raise
 
-    async def submit(self, packet: EventPacket):
+    async def submit(self, packet: EventPacket | Mapping[str, Any] | bytes):
         if self.process is None or self.process.returncode is not None:
             raise RuntimeError("runtime is not running")
+        if isinstance(packet, EventPacket):
+            parsed = EventPacket.from_bytes(
+                packet.to_bytes(), counter=self.integrity_counter
+            )
+            payload = parsed.to_dict()
+        elif isinstance(packet, (bytes, bytearray, memoryview)):
+            parsed = EventPacket.from_bytes(packet, counter=self.integrity_counter)
+            payload = parsed.to_dict()
+        elif isinstance(packet, Mapping):
+            parsed = EventPacket.from_dict(packet, counter=self.integrity_counter)
+            payload = parsed.to_dict()
+        else:
+            raise TypeError("runtime packet must be an EventPacket or packet mapping")
         raw = (
             json.dumps(
-                {"type": "packet", "packet": json.loads(packet.json())},
-                separators=(",", ":"),
-            ).encode()
+                {"type": "packet", "packet": payload},
+                ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+            ).encode("utf-8")
             + b"\n"
         )
         if len(raw) > self.max_line:
@@ -75,4 +94,5 @@ class ProcessRuntime:
         return {
             "running": self.process is not None and self.process.returncode is None,
             "returncode": None if self.process is None else self.process.returncode,
+            "integrity_rejected": self.integrity_counter.integrity_rejected,
         }

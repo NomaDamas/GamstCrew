@@ -127,4 +127,8 @@ class RuntimeManager:
             self.dropped[name],
             errors=list(self.errors[name]),
             descriptor=descriptor,
+            integrity_rejected=(
+                adapter_health.get("integrity_rejected", 0)
+                if isinstance(adapter_health, dict) else 0
+            ),
         )

@@ -1,4 +1,13 @@
-from .packet import EventPacket, RuntimeDescriptor, HealthSnapshot
+from .packet import (
+    EventPacket,
+    RuntimeDescriptor,
+    HealthSnapshot,
+    PacketIntegrityCounter,
+    canonical_packet_bytes,
+    packet_checksum,
+    packet_sha256,
+    verify_packet_checksum,
+)
 from .manager import RuntimeAdapter, RuntimeManager
 from .process_runtime import ProcessRuntime
 from .core_provider import CoreProviderRuntime
@@ -16,6 +25,11 @@ __all__ = [
     "EventPacket",
     "RuntimeDescriptor",
     "HealthSnapshot",
+    "PacketIntegrityCounter",
+    "canonical_packet_bytes",
+    "packet_checksum",
+    "packet_sha256",
+    "verify_packet_checksum",
     "RuntimeAdapter",
     "RuntimeManager",
     "ProcessRuntime",
