@@ -67,6 +67,16 @@ class Foundation(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(t.eligible(1)), 1)
         self.assertEqual(len(t.eligible(0)), 0)
 
+    def test_clock_identity_survives_packet_serialization(self):
+        from dataclasses import replace
+        import json
+        value = replace(packet(1), clock_id='camera-clock', clock_epoch='boot-7')
+        decoded = json.loads(value.json())
+        self.assertEqual(decoded['clock_id'], 'camera-clock')
+        self.assertEqual(decoded['clock_epoch'], 'boot-7')
+        with self.assertRaises(ValueError):
+            replace(value, clock_epoch='')
+
     def test_descriptor_requires_revision_and_license(self):
         with self.assertRaises(ValueError):
             RuntimeDescriptor("x", "mac", "fixture", "", "MIT", True)

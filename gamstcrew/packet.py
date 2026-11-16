@@ -51,6 +51,8 @@ class EventPacket:
     source_spans: tuple[dict[str, Any], ...] = ()
     query_cutoff_ms: int | None = None
     monotonic_capture_ms: int | None = None
+    clock_id: str = "legacy"
+    clock_epoch: str = "legacy"
     supersedes: str | None = None
 
     def __post_init__(self):
@@ -61,6 +63,8 @@ class EventPacket:
             "modality",
             "event_type",
             "source_clock",
+            "clock_id",
+            "clock_epoch",
             "provider",
             "model_revision",
         ):
