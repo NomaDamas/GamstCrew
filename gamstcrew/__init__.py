@@ -4,6 +4,13 @@ from .process_runtime import ProcessRuntime
 from .core_provider import CoreProviderRuntime
 from .temporal import TemporalAligner
 from .launcher import launch_profile
+from .resources import (
+    ResourceAllocator,
+    ResourceCapacity,
+    ResourceRequest,
+    ResourceReservation,
+    ResourceUnavailable,
+)
 
 __all__ = [
     "EventPacket",
@@ -15,4 +22,9 @@ __all__ = [
     "CoreProviderRuntime",
     "TemporalAligner",
     "launch_profile",
+    "ResourceAllocator",
+    "ResourceCapacity",
+    "ResourceRequest",
+    "ResourceReservation",
+    "ResourceUnavailable",
 ]

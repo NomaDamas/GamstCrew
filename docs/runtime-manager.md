@@ -2,6 +2,13 @@
 
 `RuntimeManager` registers explicit adapters with descriptors, starts them, queues bounded packets, drops oldest work with visible counters, isolates adapter errors and exposes health. Provider environments are not merged into one virtualenv.
 
+Pass a `ResourceAllocator` to the manager to reserve declared CPU cores, RAM,
+GPU count and VRAM before a provider starts. A registration that would overcommit
+any dimension is rejected atomically; startup failure and normal close release
+the exact reservation token. `resource_telemetry()` exposes bounded reservation
+and rejection counters. This is accounting evidence supplied by deployment
+discovery, not host-level cgroup/job-object enforcement or live usage sampling.
+
 ## Core provider runtime
 
 `CoreProviderRuntime` gives Crew explicit ownership of a real GAMST
