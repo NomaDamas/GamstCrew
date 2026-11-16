@@ -79,9 +79,12 @@ class RuntimeManager:
 
     def health(self, name):
         descriptor = self.runtimes[name]
+        adapter_health = self.adapters[name].health()
+        running = adapter_health.get("running") if isinstance(adapter_health, dict) else None
+        status = "crashed" if running is False else "ready" if descriptor.ready else "not_ready"
         return HealthSnapshot(
             name,
-            "ready" if descriptor.ready else "not_ready",
+            status,
             len(self.queues[name]),
             self.capacity,
             self.dropped[name],
