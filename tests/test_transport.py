@@ -40,6 +40,19 @@ class Transport(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             JsonlUnixServer(lambda request: request, max_line=255)
 
+    def test_transport_timeouts_are_finite_and_bounded(self):
+        for value in (0, -1, 10**-400, float("nan"), float("inf"), 601, 10**400):
+            with self.assertRaises(ValueError):
+                JsonlUnixServer(lambda request: request, handler_timeout_s=value)
+            with self.assertRaises(ValueError):
+                asyncio.run(jsonl_call("/tmp/unused", {}, timeout_s=value))
+
+        # The documented upper boundary remains valid for both endpoints.
+        self.assertEqual(
+            JsonlUnixServer(lambda request: request, handler_timeout_s=600).handler_timeout_s,
+            600.0,
+        )
+
     async def test_handler_timeout_is_bounded_and_reported(self):
         async def handler(request):
             await asyncio.sleep(0.05)

@@ -63,7 +63,13 @@ the server echoes it on successful responses and handler errors; a mismatched
 ID is rejected before the caller accepts the response. Duplicate JSON keys and
 non-finite values are rejected. Requests and responses are size-checked;
 provider payloads remain validated by the packet contract. Handler and caller
-timeouts (`handler_timeout_s` and `timeout_s`) bound stalled providers.
+timeouts (`handler_timeout_s` and `timeout_s`) bound stalled providers. Each
+timeout must be a finite numeric value strictly greater than zero and no larger
+than 600 seconds (`MAX_TIMEOUT_S`); non-finite values, booleans, values that
+underflow to zero, and arbitrarily large integers are rejected before a socket
+or provider is started. The 600-second ceiling applies to the configured
+handler/caller timeout only. Socket close waits are a separate lifecycle
+operation and are not covered by this input bound.
 The configured line bound is validated (minimum 256 bytes so a correlated
 protocol error remains representable), and error responses are bounded too.
 `SharedPacket`

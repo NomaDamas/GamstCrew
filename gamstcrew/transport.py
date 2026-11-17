@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import json
+import math
 import os
 import tempfile
 import uuid
@@ -10,6 +11,23 @@ from .packet import MAX_PACKET_BYTES
 
 MAX_CORRELATION_ID = 128
 MIN_LINE_BYTES = 256
+MAX_TIMEOUT_S = 600.0
+
+
+def _timeout(value, name):
+    if type(value) not in (int, float):
+        raise ValueError(
+            f"{name} must be finite and between 0 and {MAX_TIMEOUT_S:g} seconds"
+        )
+    try:
+        converted = float(value)
+    except (OverflowError, ValueError) as exc:
+        raise ValueError(
+            f"{name} must be finite and between 0 and {MAX_TIMEOUT_S:g} seconds"
+        ) from exc
+    if not math.isfinite(converted) or not 0 < converted <= MAX_TIMEOUT_S:
+        raise ValueError(f"{name} must be finite and between 0 and {MAX_TIMEOUT_S:g} seconds")
+    return converted
 
 
 def _correlation_id(value):
@@ -70,9 +88,7 @@ class JsonlUnixServer:
             max_line,
             None,
         )
-        if type(handler_timeout_s) not in (int, float) or handler_timeout_s <= 0:
-            raise ValueError("handler_timeout_s must be positive")
-        self.handler_timeout_s = float(handler_timeout_s)
+        self.handler_timeout_s = _timeout(handler_timeout_s, "handler_timeout_s")
 
     async def start(self):
         if os.path.exists(self.path):
@@ -150,8 +166,7 @@ async def jsonl_call(path, request, max_line=MAX_PACKET_BYTES, timeout_s=30.0):
         raise ValueError(
             f"max_line must be an integer from {MIN_LINE_BYTES} to {MAX_PACKET_BYTES}"
         )
-    if type(timeout_s) not in (int, float) or timeout_s <= 0:
-        raise ValueError("timeout_s must be positive")
+    timeout_s = _timeout(timeout_s, "timeout_s")
     if not isinstance(request, Mapping):
         raise TypeError("request must be an object")
     request = dict(request)
