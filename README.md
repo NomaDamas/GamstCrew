@@ -81,6 +81,24 @@ subprocess when the profile's native runtime is compatible and a container
 would add no useful boundary. Either way, pass the worker's bounded readiness
 and packet protocol through the launch command.
 
+### Docker Desktop on macOS is a deployment trade-off
+
+Docker containers use a Linux kernel. On macOS, Docker Desktop therefore runs
+the engine inside a Linux virtual machine. That VM consumes an allocated share
+of host RAM and CPU, adds image and filesystem sharing work, and can increase
+cold-start time. Camera, microphone, MPS/GPU and other host-device access also
+needs explicit Desktop permissions or a supported passthrough; it is not the
+same path as a native Apple Silicon process. These costs can dominate a small
+local perception worker even though the container process itself is light.
+
+Native Linux does not need that extra Linux VM. Docker can then provide a
+pinned userspace and NVIDIA Container Toolkit/CUDA integration with a smaller
+host boundary, so it is a sensible default for the `linux-cuda` profile when
+the image and device contract have been tested. This is why Crew records the
+deployment choice in a profile instead of putting every provider into Docker
+by policy. The choice is about host and accelerator boundaries, not a claim
+that containers are universally slower or faster.
+
 ## Why not put every provider in one container?
 
 A universal image would couple providers that often have incompatible Python

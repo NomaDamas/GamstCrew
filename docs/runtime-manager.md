@@ -40,6 +40,17 @@ system libraries or image-level reproducibility that the host Python runtime
 does not provide. The container still presents the same readiness and packet
 contract to Crew.
 
+
+On macOS, Docker Desktop adds a Linux virtual machine because containers need
+a Linux kernel. The VM's RAM/CPU allocation, image startup and host filesystem
+sharing add overhead, and camera, microphone and Apple GPU/MPS access require
+explicit device integration. For a small Apple Silicon perception worker, a
+native host subprocess is therefore the normal profile. On native Linux there
+is no Docker Desktop Linux VM; Docker's value is instead the pinned userspace
+and NVIDIA Container Toolkit/CUDA boundary used by the `linux-cuda` profile.
+The manager keeps these as deployment facts rather than treating Docker as a
+universal performance rule.
+
 The macOS Apple Silicon, Linux CPU, Windows CPU/DirectML and Jetson profiles
 describe their native runtime families. They may be launched as host
 subprocesses or by a deployment-specific wrapper when that wrapper is part of
