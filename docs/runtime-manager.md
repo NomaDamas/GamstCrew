@@ -2,6 +2,14 @@
 
 `RuntimeManager` registers explicit adapters with descriptors, starts them, queues bounded packets, drops oldest work with visible counters, isolates adapter errors and exposes health. Provider environments are not merged into one virtualenv.
 
+Submission failures are recorded in bounded error history and exposed as
+`crash_count`. Deployments may opt into a bounded restart policy with
+`RuntimeManager(restart_limit=N, restart_backoff_s=...)`; the default is zero
+automatic restarts so a failed provider remains visible for operator action.
+Subprocess stderr is drained continuously and its bounded tail is included in
+process health diagnostics, preventing a noisy provider from blocking its IPC
+pipe. These signals are diagnostics, not host acceptance evidence.
+
 Pass a `ResourceAllocator` to the manager to reserve declared CPU cores, RAM,
 GPU count and VRAM before a provider starts. A registration that would overcommit
 any dimension is rejected atomically; startup failure and normal close release
@@ -28,5 +36,6 @@ so `SensorStreams` preserves worker identity in temporal observations.
 
 `gamstcrew.transport.JsonlUnixServer` provides a bounded newline-delimited JSON
 Unix-domain socket seam. Requests and responses are size-checked; provider
-payloads remain validated by the packet contract. Shared memory is a later
-Linux/CUDA optimization and is not assumed by the core contract.
+payloads remain validated by the packet contract. Handler and caller timeouts
+(`handler_timeout_s` and `timeout_s`) bound stalled providers. Shared memory is
+a later Linux/CUDA optimization and is not assumed by the core contract.

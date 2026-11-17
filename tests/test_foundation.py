@@ -1,4 +1,5 @@
 import unittest
+import asyncio
 from gamstcrew import EventPacket, RuntimeDescriptor, RuntimeManager, TemporalAligner
 
 
@@ -18,6 +19,20 @@ class Adapter:
 
     def health(self):
         return {}
+
+
+class FlakyAdapter(Adapter):
+    def __init__(self):
+        super().__init__()
+        self.starts = 0
+
+    async def start(self):
+        self.starts += 1
+
+    async def submit(self, p):
+        if not self.items:
+            raise RuntimeError("transient provider failure")
+        self.items.append(p)
 
 
 def packet(i, cut=None):
@@ -67,6 +82,20 @@ class Foundation(unittest.IsolatedAsyncioTestCase):
             await manager.register('x', adapter, RuntimeDescriptor('x', 'mac', 'fixture', '1', 'MIT', True))
         self.assertTrue(adapter.stopped)
         self.assertNotIn('x', manager.runtimes)
+
+    async def test_runtime_error_is_visible_and_restart_is_bounded(self):
+        manager = RuntimeManager(restart_limit=1)
+        adapter = FlakyAdapter()
+        await manager.register('x', adapter, RuntimeDescriptor('x', 'mac', 'fixture', '1', 'MIT', True))
+        try:
+            await manager.submit('x', packet(1))
+            await asyncio.sleep(0.03)
+            health = manager.health('x')
+            self.assertEqual(health.crash_count, 1)
+            self.assertEqual(health.restart_count, 1)
+            self.assertEqual(adapter.starts, 2)
+        finally:
+            await manager.close('x')
 
     async def test_temporal_clock_cutoff_revision(self):
         t = TemporalAligner(min_samples=3)

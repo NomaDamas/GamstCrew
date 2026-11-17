@@ -47,6 +47,19 @@ class ProcessRuntimeTests(unittest.IsolatedAsyncioTestCase):
             await runtime.stop()
         self.assertIsNone(runtime.process)
 
+    async def test_stderr_is_drained_and_exposed_as_diagnostics(self):
+        script = "import sys,json; print(json.dumps({'type':'ready'}),flush=True); print('provider warning',file=sys.stderr,flush=True); [print(json.dumps({'accepted':True}),flush=True) for line in sys.stdin]"
+        runtime = ProcessRuntime(
+            (sys.executable, "-u", "-c", script),
+            RuntimeDescriptor("x", "mac", "fixture", "1", "MIT", True),
+        )
+        await runtime.start()
+        try:
+            await asyncio.sleep(0.01)
+            self.assertIn("provider warning", runtime.health()["stderr_tail"])
+        finally:
+            await runtime.stop()
+
     async def test_bad_readiness_fails(self):
         runtime = ProcessRuntime(
             (sys.executable, "-u", "-c", "print('bad',flush=True)"),

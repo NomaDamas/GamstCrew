@@ -15,16 +15,25 @@ class RuntimeAdapter(Protocol):
 
 
 class RuntimeManager:
-    def __init__(self, capacity=8, *, resource_allocator=None):
+    def __init__(self, capacity=8, *, resource_allocator=None,
+                 restart_limit=0, restart_backoff_s=0.0):
         if type(capacity) is not int or capacity < 1:
             raise ValueError("capacity must be positive")
         self.capacity = capacity
+        if type(restart_limit) is not int or restart_limit < 0:
+            raise ValueError("restart_limit must be a nonnegative integer")
+        if type(restart_backoff_s) not in (int, float) or restart_backoff_s < 0:
+            raise ValueError("restart_backoff_s must be nonnegative")
+        self.restart_limit = restart_limit
+        self.restart_backoff_s = float(restart_backoff_s)
         self.runtimes = {}
         self.adapters = {}
         self.queues = {}
         self.tasks = {}
         self.dropped = {}
         self.errors = {}
+        self.crashes = {}
+        self.restarts = {}
         self.lock = asyncio.Lock()
         if resource_allocator is not None and not isinstance(resource_allocator, ResourceAllocator):
             raise TypeError("resource_allocator must be a ResourceAllocator")
@@ -55,6 +64,8 @@ class RuntimeManager:
         self.queues[name] = deque(maxlen=self.capacity)
         self.dropped[name] = 0
         self.errors[name] = []
+        self.crashes[name] = 0
+        self.restarts[name] = 0
         if reservation is not None:
             self.resource_reservations[name] = reservation
         self.tasks[name] = asyncio.create_task(
@@ -94,6 +105,17 @@ class RuntimeManager:
             except Exception as exc:
                 self.errors[name].append(str(exc))
                 self.errors[name] = self.errors[name][-16:]
+                self.crashes[name] += 1
+                if self.restarts[name] < self.restart_limit and name in self.runtimes:
+                    try:
+                        await adapter.stop()
+                        if self.restart_backoff_s:
+                            await asyncio.sleep(self.restart_backoff_s)
+                        await adapter.start()
+                        self.restarts[name] += 1
+                    except Exception as restart_exc:
+                        self.errors[name].append(f"restart failed: {restart_exc}")
+                        self.errors[name] = self.errors[name][-16:]
 
     async def submit(self, name, packet):
         if name not in self.runtimes:
@@ -119,6 +141,10 @@ class RuntimeManager:
                 self.resource_allocator.release(reservation)
             self.runtimes.pop(name, None)
             self.queues.pop(name, None)
+            self.dropped.pop(name, None)
+            self.errors.pop(name, None)
+            self.crashes.pop(name, None)
+            self.restarts.pop(name, None)
 
     def health(self, name):
         descriptor = self.runtimes[name]
@@ -133,6 +159,8 @@ class RuntimeManager:
             self.dropped[name],
             errors=list(self.errors[name]),
             descriptor=descriptor,
+            crash_count=self.crashes[name],
+            restart_count=self.restarts[name],
             integrity_rejected=(
                 adapter_health.get("integrity_rejected", 0)
                 if isinstance(adapter_health, dict) else 0

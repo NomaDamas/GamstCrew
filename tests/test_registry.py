@@ -37,6 +37,24 @@ class Registry(unittest.TestCase):
             with self.assertRaises(ValueError):
                 read_profiles(p)
 
+    def test_python_metadata_and_declared_hash_are_checked(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            lock = root / "lock.txt"
+            lock.write_text("locked")
+            import hashlib
+            value = self.profile()
+            value["lockfile"] = "lock.txt"
+            value["lock_sha256"] = hashlib.sha256(b"locked").hexdigest()
+            p = root / "profiles.json"
+            p.write_text(json.dumps([value]))
+            profile = read_profiles(p)[0]
+            self.assertEqual(profile.verify_artifacts(root), {"lockfile": "verified", "artifact": "unmeasured"})
+            value["python"] = "python-three"
+            p.write_text(json.dumps([value]))
+            with self.assertRaises(ValueError):
+                read_profiles(p)[0].validate_for({"os": "darwin", "accelerator": "mps"})
+
 
 if __name__ == "__main__":
     unittest.main()

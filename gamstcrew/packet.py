@@ -318,3 +318,5 @@ class HealthSnapshot:
     errors: list[str] = field(default_factory=list)
     descriptor: RuntimeDescriptor | None = None
     integrity_rejected: int = 0
+    crash_count: int = 0
+    restart_count: int = 0

@@ -7,13 +7,17 @@ from .packet import MAX_PACKET_BYTES
 
 
 class JsonlUnixServer:
-    def __init__(self, handler, path=None, max_line=MAX_PACKET_BYTES):
+    def __init__(self, handler, path=None, max_line=MAX_PACKET_BYTES,
+                 handler_timeout_s=30.0):
         self.handler, self.path, self.max_line, self.server = (
             handler,
             path or tempfile.mktemp(prefix="gamstcrew-", suffix=".sock"),
             max_line,
             None,
         )
+        if type(handler_timeout_s) not in (int, float) or handler_timeout_s <= 0:
+            raise ValueError("handler_timeout_s must be positive")
+        self.handler_timeout_s = float(handler_timeout_s)
 
     async def start(self):
         if os.path.exists(self.path):
@@ -39,7 +43,9 @@ class JsonlUnixServer:
                 if len(line) > self.max_line or not line.endswith(b"\n"):
                     raise ValueError("line exceeds transport bound")
                 request = json.loads(line)
-                response = await self.handler(request)
+                response = await asyncio.wait_for(
+                    self.handler(request), timeout=self.handler_timeout_s
+                )
                 raw = (
                     json.dumps(
                         response,
@@ -70,16 +76,18 @@ class JsonlUnixServer:
             pass
 
 
-async def jsonl_call(path, request, max_line=MAX_PACKET_BYTES):
+async def jsonl_call(path, request, max_line=MAX_PACKET_BYTES, timeout_s=30.0):
+    if type(timeout_s) not in (int, float) or timeout_s <= 0:
+        raise ValueError("timeout_s must be positive")
     reader, writer = await asyncio.open_unix_connection(path, limit=max_line)
     try:
         raw = json.dumps(request, ensure_ascii=False, allow_nan=False).encode() + b"\n"
         if len(raw) > max_line:
             raise ValueError("request exceeds transport bound")
         writer.write(raw)
-        await writer.drain()
+        await asyncio.wait_for(writer.drain(), timeout=timeout_s)
         try:
-            response = await reader.readuntil(b"\n")
+            response = await asyncio.wait_for(reader.readuntil(b"\n"), timeout=timeout_s)
         except asyncio.LimitOverrunError as exc:
             raise ValueError("response exceeds transport bound") from exc
         if len(response) > max_line:
