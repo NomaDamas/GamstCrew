@@ -148,6 +148,25 @@ class RuntimeManager:
                 self.crashes.pop(name, None)
                 self.restarts.pop(name, None)
 
+    async def close_all(self):
+        """Stop every registered runtime and release its reservations.
+
+        Shutdown is deliberately serialized through :meth:`close` so each
+        provider gets the same cancellation, transport cleanup, and resource
+        release guarantees as an individual close.  Taking a snapshot avoids
+        mutating the runtime registry while iterating it.
+        """
+        async with self.lock:
+            names = tuple(self.runtimes)
+        for name in names:
+            await self.close(name)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_exc):
+        await self.close_all()
+
     def health(self, name):
         descriptor = self.runtimes[name]
         adapter_health = self.adapters[name].health()

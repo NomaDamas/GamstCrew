@@ -95,6 +95,27 @@ class Foundation(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(adapter.stopped)
         self.assertNotIn('x', manager.runtimes)
 
+    async def test_close_all_stops_every_runtime_and_releases_registry(self):
+        manager = RuntimeManager()
+        adapters = [Adapter(), Adapter()]
+        descriptor = RuntimeDescriptor("runtime", "mac", "fixture", "1", "MIT", True)
+        await manager.register("one", adapters[0], descriptor)
+        await manager.register("two", adapters[1], descriptor)
+        await manager.close_all()
+        self.assertEqual(manager.runtimes, {})
+        self.assertTrue(adapters[0].stopped)
+        self.assertTrue(adapters[1].stopped)
+
+    async def test_manager_async_context_closes_registered_runtimes(self):
+        adapter = Adapter()
+        async with RuntimeManager() as manager:
+            await manager.register(
+                "ctx", adapter,
+                RuntimeDescriptor("ctx", "mac", "fixture", "1", "MIT", True),
+            )
+            self.assertIn("ctx", manager.runtimes)
+        self.assertTrue(adapter.stopped)
+
     async def test_runtime_error_is_visible_and_restart_is_bounded(self):
         manager = RuntimeManager(restart_limit=1)
         adapter = FlakyAdapter()
