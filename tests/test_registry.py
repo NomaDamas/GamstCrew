@@ -65,6 +65,19 @@ class Registry(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 descriptor.validate_for({"os": "darwin", "arch": "arm64", "accelerator": "mps"})
 
+    def test_python_metadata_is_enforced_when_host_reports_python(self):
+        with tempfile.TemporaryDirectory() as d:
+            value = self.profile()
+            value["python"] = "3.11"
+            p = Path(d) / "profiles.json"
+            p.write_text(json.dumps([value]))
+            descriptor = read_profiles(p)[0]
+            with self.assertRaisesRegex(RuntimeError, "requires Python 3.11"):
+                descriptor.validate_for({
+                    "os": "darwin", "arch": "arm64", "accelerator": "mps",
+                    "python": "3.10.11",
+                })
+
 
 if __name__ == "__main__":
     unittest.main()

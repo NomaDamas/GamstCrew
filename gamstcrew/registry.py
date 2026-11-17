@@ -57,6 +57,20 @@ class ProviderProfile:
         match = re.fullmatch(r"(?:python)?\s*(\d+)\.(\d+)(?:\.(\d+))?", self.python)
         if not match:
             raise ValueError(f"{self.name} has invalid python version metadata")
+        host_python = host.get("python")
+        if host_python is not None:
+            host_match = re.fullmatch(
+                r"(?:python)?\s*(\d+)\.(\d+)(?:\.(\d+))?", str(host_python)
+            )
+            if host_match is None:
+                raise ValueError("host has invalid python version metadata")
+            required = (int(match.group(1)), int(match.group(2)))
+            actual = (int(host_match.group(1)), int(host_match.group(2)))
+            if actual != required:
+                raise RuntimeError(
+                    f"{self.name} requires Python {required[0]}.{required[1]}, "
+                    f"got {actual[0]}.{actual[1]}"
+                )
         return True
 
 
