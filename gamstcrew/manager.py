@@ -41,36 +41,37 @@ class RuntimeManager:
         self.resource_reservations = {}
 
     async def register(self, name, adapter, descriptor, *, resources=None):
-        if name in self.runtimes:
-            raise ValueError("runtime already registered")
-        reservation = None
-        if resources is not None:
-            if self.resource_allocator is None:
-                raise ValueError("resource allocator required for runtime resources")
-            if not isinstance(resources, ResourceRequest):
-                raise TypeError("resources must be a ResourceRequest")
-            reservation = self.resource_allocator.reserve(resources, owner=name)
-        try:
-            await adapter.start()
-        except BaseException:
+        async with self.lock:
+            if name in self.runtimes:
+                raise ValueError("runtime already registered")
+            reservation = None
+            if resources is not None:
+                if self.resource_allocator is None:
+                    raise ValueError("resource allocator required for runtime resources")
+                if not isinstance(resources, ResourceRequest):
+                    raise TypeError("resources must be a ResourceRequest")
+                reservation = self.resource_allocator.reserve(resources, owner=name)
             try:
-                await adapter.stop()
-            finally:
-                if reservation is not None:
-                    self.resource_allocator.release(reservation)
-            raise
-        self.runtimes[name] = descriptor
-        self.adapters[name] = adapter
-        self.queues[name] = deque(maxlen=self.capacity)
-        self.dropped[name] = 0
-        self.errors[name] = []
-        self.crashes[name] = 0
-        self.restarts[name] = 0
-        if reservation is not None:
-            self.resource_reservations[name] = reservation
-        self.tasks[name] = asyncio.create_task(
-            self._drain(name), name="gamstcrew:" + name
-        )
+                await adapter.start()
+            except BaseException:
+                try:
+                    await adapter.stop()
+                finally:
+                    if reservation is not None:
+                        self.resource_allocator.release(reservation)
+                raise
+            self.runtimes[name] = descriptor
+            self.adapters[name] = adapter
+            self.queues[name] = deque(maxlen=self.capacity)
+            self.dropped[name] = 0
+            self.errors[name] = []
+            self.crashes[name] = 0
+            self.restarts[name] = 0
+            if reservation is not None:
+                self.resource_reservations[name] = reservation
+            self.tasks[name] = asyncio.create_task(
+                self._drain(name), name="gamstcrew:" + name
+            )
 
     async def register_process(self, name, process_runtime, *, resources=None,
                                host_controller=None):
@@ -127,24 +128,25 @@ class RuntimeManager:
         queue.append(packet)
 
     async def close(self, name):
-        task = self.tasks.pop(name, None)
-        if task:
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
-        adapter = self.adapters.pop(name, None)
-        try:
-            if adapter:
-                await adapter.stop()
-        finally:
-            reservation = self.resource_reservations.pop(name, None)
-            if reservation is not None:
-                self.resource_allocator.release(reservation)
-            self.runtimes.pop(name, None)
-            self.queues.pop(name, None)
-            self.dropped.pop(name, None)
-            self.errors.pop(name, None)
-            self.crashes.pop(name, None)
-            self.restarts.pop(name, None)
+        async with self.lock:
+            task = self.tasks.pop(name, None)
+            if task:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            adapter = self.adapters.pop(name, None)
+            try:
+                if adapter:
+                    await adapter.stop()
+            finally:
+                reservation = self.resource_reservations.pop(name, None)
+                if reservation is not None:
+                    self.resource_allocator.release(reservation)
+                self.runtimes.pop(name, None)
+                self.queues.pop(name, None)
+                self.dropped.pop(name, None)
+                self.errors.pop(name, None)
+                self.crashes.pop(name, None)
+                self.restarts.pop(name, None)
 
     def health(self, name):
         descriptor = self.runtimes[name]

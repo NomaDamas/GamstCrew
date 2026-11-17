@@ -60,6 +60,18 @@ def packet(i, cut=None):
 
 
 class Foundation(unittest.IsolatedAsyncioTestCase):
+    async def test_concurrent_registration_is_serialized(self):
+        manager = RuntimeManager()
+        adapters = [Adapter(), Adapter()]
+        descriptors = [RuntimeDescriptor("same", "mac", "fixture", "1", "MIT", True)] * 2
+        results = await asyncio.gather(
+            manager.register("same", adapters[0], descriptors[0]),
+            manager.register("same", adapters[1], descriptors[1]),
+            return_exceptions=True,
+        )
+        self.assertEqual(sum(isinstance(result, ValueError) for result in results), 1)
+        await manager.close("same")
+
     async def test_manager_bounded_health(self):
         m = RuntimeManager(capacity=2)
         a = Adapter()
