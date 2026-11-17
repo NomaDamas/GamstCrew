@@ -6,6 +6,13 @@ Submission failures are recorded in bounded error history and exposed as
 `crash_count`. Deployments may opt into a bounded restart policy with
 `RuntimeManager(restart_limit=N, restart_backoff_s=...)`; the default is zero
 automatic restarts so a failed provider remains visible for operator action.
+
+Applications that own more than one provider can use `await manager.close_all()`
+at shutdown, or use `RuntimeManager` as an async context manager.  Both paths
+close each registered runtime through the same cancellation and reservation
+release path as `close(name)`, and leave the manager registry empty.  This is
+the lifecycle boundary used by launchers and test fixtures; it does not claim
+that a host-specific provider process passed hardware acceptance.
 Subprocess stderr is drained continuously and its bounded tail is included in
 process health diagnostics, preventing a noisy provider from blocking its IPC
 pipe. These signals are diagnostics, not host acceptance evidence.

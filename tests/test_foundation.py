@@ -95,6 +95,27 @@ class Foundation(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(adapter.stopped)
         self.assertNotIn('x', manager.runtimes)
 
+    async def test_close_all_stops_every_runtime_and_releases_registry(self):
+        manager = RuntimeManager()
+        adapters = [Adapter(), Adapter()]
+        descriptor = RuntimeDescriptor("runtime", "mac", "fixture", "1", "MIT", True)
+        await manager.register("one", adapters[0], descriptor)
+        await manager.register("two", adapters[1], descriptor)
+        await manager.close_all()
+        self.assertEqual(manager.runtimes, {})
+        self.assertTrue(adapters[0].stopped)
+        self.assertTrue(adapters[1].stopped)
+
+    async def test_manager_async_context_closes_registered_runtimes(self):
+        adapter = Adapter()
+        async with RuntimeManager() as manager:
+            await manager.register(
+                "ctx", adapter,
+                RuntimeDescriptor("ctx", "mac", "fixture", "1", "MIT", True),
+            )
+            self.assertIn("ctx", manager.runtimes)
+        self.assertTrue(adapter.stopped)
+
     async def test_runtime_error_is_visible_and_restart_is_bounded(self):
         manager = RuntimeManager(restart_limit=1)
         adapter = FlakyAdapter()
@@ -118,6 +139,31 @@ class Foundation(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(t.accept(packet(1)))
         self.assertEqual(len(t.eligible(1)), 1)
         self.assertEqual(len(t.eligible(0)), 0)
+
+    async def test_temporal_normalization_is_explicit_before_and_after_calibration(self):
+        t = TemporalAligner(min_samples=3)
+        self.assertIsNone(t.normalize_timestamp("camera", 100)["normalized_timestamp_ms"])
+        for i in range(3):
+            t.add_clock_sample("camera", i * 100, i * 100 + 5)
+        normalized = t.normalize_timestamp("camera", 300)
+        self.assertTrue(normalized["calibrated"])
+        self.assertEqual(normalized["normalized_timestamp_ms"], 305)
+
+    async def test_sequence_gap_and_contradiction_preserve_provenance(self):
+        from dataclasses import replace
+        t = TemporalAligner()
+        first = packet(10)
+        second = replace(packet(12), event_id="12", value={"state": "gone"}, evidence_ids=("frame-12",))
+        self.assertEqual(t.sequence_gap(first)["state"], "initial")
+        self.assertTrue(t.accept(first))
+        gap = t.sequence_gap(second)
+        self.assertEqual(gap["state"], "gap")
+        self.assertTrue(gap["detected_gap"])
+        candidate = t.contradiction_candidate(first, second)
+        self.assertEqual(candidate["contradiction_status"], "candidate")
+        self.assertEqual(candidate["event_ids"], ["10", "12"])
+        self.assertEqual(candidate["evidence_ids"], ["frame-12"] if first.evidence_ids == () else list(first.evidence_ids) + ["frame-12"])
+        self.assertEqual(candidate["values"]["left"], {"i": 10})
 
     async def test_revision_lineage_and_clock_epoch(self):
         from dataclasses import replace

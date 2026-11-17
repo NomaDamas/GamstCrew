@@ -21,3 +21,25 @@ after acknowledgement or timeout. `make_packet_transfer(...,
 prefer_shared_memory=False)` returns the identical packet bytes as a socket
 fallback. GPU/CUDA zero-copy and target-host performance remain separate
 acceptance work.
+
+## Temporal alignment helpers
+
+`TemporalAligner` retains bounded source-clock samples and exposes the
+calibration status already carried by the packet contract. Once the minimum
+sample count is available, `normalize_timestamp(clock, source_ms)` maps a
+source-clock timestamp into the monotonic timeline using the fitted offset and
+drift. Before calibration it returns an explicit uncalibrated result instead of
+silently treating source time as monotonic.
+
+The aligner also tracks the last accepted sequence per stream. A
+`sequence_gap(event)` result reports the expected sequence, observed sequence
+and whether the packet's declared `gap` agrees with the observed discontinuity;
+it never fabricates missing events. `relation_candidate()` retains both event
+clock identities, calibration status and evidence IDs. `contradiction_candidate()`
+creates an abstaining candidate with both event values and provenance; it is a
+candidate for downstream review, never a truth assertion.
+
+Acceptance is contract-level only: bounded state, deterministic normalization,
+explicit uncalibrated status, sequence discontinuity visibility and provenance
+preservation. Cross-process clock calibration, contradiction quality and real
+host timing remain benchmark/host gates.
