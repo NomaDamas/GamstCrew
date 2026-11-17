@@ -37,5 +37,8 @@ so `SensorStreams` preserves worker identity in temporal observations.
 `gamstcrew.transport.JsonlUnixServer` provides a bounded newline-delimited JSON
 Unix-domain socket seam. Requests and responses are size-checked; provider
 payloads remain validated by the packet contract. Handler and caller timeouts
-(`handler_timeout_s` and `timeout_s`) bound stalled providers. Shared memory is
-a later Linux/CUDA optimization and is not assumed by the core contract.
+(`handler_timeout_s` and `timeout_s`) bound stalled providers. `SharedPacket`
+provides an optional bounded local CPU transport with descriptor and packet
+checksum verification before dispatch; the JSONL socket path remains an
+explicit fallback. GPU/CUDA zero-copy and target-host performance are not
+claimed by this contract.

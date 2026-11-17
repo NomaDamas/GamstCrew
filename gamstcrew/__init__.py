@@ -28,6 +28,9 @@ from .host_limits import (
     HostLimitUnsupported,
     HostLimitUnavailable,
 )
+from .shared_memory_transport import (
+    SharedPacket, make_packet_transfer, read_packet_transfer, read_shared_packet,
+)
 
 __all__ = [
     "EventPacket",
@@ -55,4 +58,8 @@ __all__ = [
     "HostLimitReport",
     "HostLimitUnsupported",
     "HostLimitUnavailable",
+    "SharedPacket",
+    "make_packet_transfer",
+    "read_packet_transfer",
+    "read_shared_packet",
 ]
