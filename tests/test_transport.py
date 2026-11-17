@@ -6,14 +6,14 @@ from gamstcrew.transport import JsonlUnixServer, jsonl_call
 class Transport(unittest.IsolatedAsyncioTestCase):
     async def test_roundtrip_and_error_bound(self):
         async def handler(request):
-            return {"id": request["id"], "ok": True}
+            return {"id": request["id"], "ok": True, "request_id": request["request_id"]}
 
         server = JsonlUnixServer(handler, max_line=1024)
         await server.start()
         try:
-            self.assertEqual(
-                await jsonl_call(server.path, {"id": 1}), {"id": 1, "ok": True}
-            )
+            result = await jsonl_call(server.path, {"id": 1})
+            self.assertEqual(result["id"], 1)
+            self.assertTrue(result["request_id"])
             response = await jsonl_call(server.path, {"data": "x" * 2000})
             self.assertIn("error", response)
         finally:
@@ -23,11 +23,11 @@ class Transport(unittest.IsolatedAsyncioTestCase):
         async def handler(request):
             return {"ok": True}
 
-        server = JsonlUnixServer(handler, max_line=32)
+        server = JsonlUnixServer(handler, max_line=256)
         await server.start()
         reader, writer = await asyncio.open_unix_connection(server.path, limit=1024)
         try:
-            writer.write(b"x" * 33)
+            writer.write(b"x" * 257)
             await writer.drain()
             response = await reader.readuntil(b"\n")
             self.assertIn(b"line exceeds transport bound", response)
@@ -35,6 +35,10 @@ class Transport(unittest.IsolatedAsyncioTestCase):
             writer.close()
             await writer.wait_closed()
             await server.close()
+
+    def test_transport_line_bound_is_large_enough_for_correlated_errors(self):
+        with self.assertRaises(ValueError):
+            JsonlUnixServer(lambda request: request, max_line=255)
 
     async def test_handler_timeout_is_bounded_and_reported(self):
         async def handler(request):
@@ -46,6 +50,35 @@ class Transport(unittest.IsolatedAsyncioTestCase):
         try:
             response = await jsonl_call(server.path, {"id": 1}, timeout_s=1)
             self.assertIn("error", response)
+        finally:
+            await server.close()
+
+    async def test_response_correlation_mismatch_is_rejected(self):
+        async def handler(request):
+            return {"request_id": "different"}
+
+        server = JsonlUnixServer(handler)
+        await server.start()
+        try:
+            result = await jsonl_call(server.path, {"request_id": "expected"})
+            self.assertIn("response request_id does not match request", result["error"])
+        finally:
+            await server.close()
+
+    async def test_duplicate_or_nonfinite_request_is_rejected(self):
+        async def handler(request):
+            return {"request_id": request["request_id"]}
+
+        server = JsonlUnixServer(handler)
+        await server.start()
+        try:
+            reader, writer = await asyncio.open_unix_connection(server.path)
+            writer.write(b'{"request_id":"x","request_id":"y"}\n')
+            await writer.drain()
+            response = await reader.readuntil(b"\n")
+            self.assertIn(b"duplicate JSON field", response)
+            writer.close()
+            await writer.wait_closed()
         finally:
             await server.close()
 
