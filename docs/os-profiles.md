@@ -15,6 +15,11 @@ installed or benchmark-accepted evidence.
 example only: `model_revision: manifest-pending` and the zero hash are not a
 claim of installed weights or benchmark acceptance. A real profile must replace
 both with a pinned revision and dependency-lock SHA256 before launch.
+
+Launch also validates declared architecture metadata and verifies every
+declared lockfile or artifact before starting a child process. A declared file
+that is missing or mismatched fails closed; profiles without local artifacts
+remain explicitly unmeasured and still require target-host acceptance.
 ## Declarative profile catalog and diagnostics
 
 Crew exposes `profile_catalog()`, `provider_compatibility()` and
