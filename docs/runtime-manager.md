@@ -64,6 +64,8 @@ ID is rejected before the caller accepts the response. Duplicate JSON keys and
 non-finite values are rejected. Requests and responses are size-checked;
 provider payloads remain validated by the packet contract. Handler and caller
 timeouts (`handler_timeout_s` and `timeout_s`) bound stalled providers.
+The configured line bound is validated (minimum 256 bytes so a correlated
+protocol error remains representable), and error responses are bounded too.
 `SharedPacket`
 provides an optional bounded local CPU transport with descriptor and packet
 checksum verification before dispatch; the JSONL socket path remains an

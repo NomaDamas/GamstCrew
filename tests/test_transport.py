@@ -23,11 +23,11 @@ class Transport(unittest.IsolatedAsyncioTestCase):
         async def handler(request):
             return {"ok": True}
 
-        server = JsonlUnixServer(handler, max_line=32)
+        server = JsonlUnixServer(handler, max_line=256)
         await server.start()
         reader, writer = await asyncio.open_unix_connection(server.path, limit=1024)
         try:
-            writer.write(b"x" * 33)
+            writer.write(b"x" * 257)
             await writer.drain()
             response = await reader.readuntil(b"\n")
             self.assertIn(b"line exceeds transport bound", response)
@@ -35,6 +35,10 @@ class Transport(unittest.IsolatedAsyncioTestCase):
             writer.close()
             await writer.wait_closed()
             await server.close()
+
+    def test_transport_line_bound_is_large_enough_for_correlated_errors(self):
+        with self.assertRaises(ValueError):
+            JsonlUnixServer(lambda request: request, max_line=255)
 
     async def test_handler_timeout_is_bounded_and_reported(self):
         async def handler(request):

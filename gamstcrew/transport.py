@@ -9,6 +9,7 @@ from .packet import MAX_PACKET_BYTES
 
 
 MAX_CORRELATION_ID = 128
+MIN_LINE_BYTES = 256
 
 
 def _correlation_id(value):
@@ -41,9 +42,28 @@ def _decode(line):
     return value
 
 
+def _error_bytes(message, request_id, max_line):
+    """Encode a protocol error without exceeding the negotiated line bound."""
+    for text in (str(message), "transport protocol error"):
+        value = {"error": text}
+        if request_id is not None:
+            value["request_id"] = request_id
+        raw = json.dumps(value, ensure_ascii=False, allow_nan=False,
+                         separators=(",", ":")).encode() + b"\n"
+        if len(raw) <= max_line:
+            return raw
+    # A bound smaller than the smallest JSON error cannot carry a response;
+    # closing the connection is the only bounded behavior.
+    return b""
+
+
 class JsonlUnixServer:
     def __init__(self, handler, path=None, max_line=MAX_PACKET_BYTES,
                  handler_timeout_s=30.0):
+        if type(max_line) is not int or not MIN_LINE_BYTES <= max_line <= MAX_PACKET_BYTES:
+            raise ValueError(
+                f"max_line must be an integer from {MIN_LINE_BYTES} to {MAX_PACKET_BYTES}"
+            )
         self.handler, self.path, self.max_line, self.server = (
             handler,
             path or tempfile.mktemp(prefix="gamstcrew-", suffix=".sock"),
@@ -105,12 +125,12 @@ class JsonlUnixServer:
                     raise ValueError("response exceeds transport bound")
                 writer.write(raw)
                 await writer.drain()
-        except (ValueError, json.JSONDecodeError, asyncio.TimeoutError) as exc:
-            error = {"error": str(exc)}
-            if request_id is not None:
-                error["request_id"] = request_id
-            writer.write(json.dumps(error, allow_nan=False).encode() + b"\n")
-            await writer.drain()
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError,
+                TypeError, asyncio.TimeoutError) as exc:
+            raw = _error_bytes(exc, request_id, self.max_line)
+            if raw:
+                writer.write(raw)
+                await writer.drain()
         finally:
             writer.close()
             await writer.wait_closed()
@@ -126,6 +146,10 @@ class JsonlUnixServer:
 
 
 async def jsonl_call(path, request, max_line=MAX_PACKET_BYTES, timeout_s=30.0):
+    if type(max_line) is not int or not MIN_LINE_BYTES <= max_line <= MAX_PACKET_BYTES:
+        raise ValueError(
+            f"max_line must be an integer from {MIN_LINE_BYTES} to {MAX_PACKET_BYTES}"
+        )
     if type(timeout_s) not in (int, float) or timeout_s <= 0:
         raise ValueError("timeout_s must be positive")
     if not isinstance(request, Mapping):
