@@ -36,6 +36,19 @@ class Transport(unittest.IsolatedAsyncioTestCase):
             await writer.wait_closed()
             await server.close()
 
+    async def test_handler_timeout_is_bounded_and_reported(self):
+        async def handler(request):
+            await asyncio.sleep(0.05)
+            return {"ok": True}
+
+        server = JsonlUnixServer(handler, handler_timeout_s=0.01)
+        await server.start()
+        try:
+            response = await jsonl_call(server.path, {"id": 1}, timeout_s=1)
+            self.assertIn("error", response)
+        finally:
+            await server.close()
+
 
 if __name__ == "__main__":
     unittest.main()

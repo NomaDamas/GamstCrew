@@ -59,7 +59,7 @@ class JsonlUnixServer:
                     raise ValueError("response exceeds transport bound")
                 writer.write(raw)
                 await writer.drain()
-        except (ValueError, json.JSONDecodeError) as exc:
+        except (ValueError, json.JSONDecodeError, asyncio.TimeoutError) as exc:
             writer.write(json.dumps({"error": str(exc)}).encode() + b"\n")
             await writer.drain()
         finally:
