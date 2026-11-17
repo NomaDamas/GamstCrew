@@ -1,0 +1,22 @@
+[
+  {
+    "name": "mac-lightweight",
+    "runtime": "darwin",
+    "python": "3.11",
+    "accelerator": "mps",
+    "provider": "gamst-lightweight",
+    "model_revision": "manifest-pending",
+    "license": "mixed-explicit-provider-licenses",
+    "lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "name": "linux-cuda",
+    "runtime": "linux",
+    "python": "3.11",
+    "accelerator": "cuda",
+    "provider": "gamst-cuda-sota",
+    "model_revision": "manifest-pending",
+    "license": "mixed-explicit-provider-licenses",
+    "lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+]

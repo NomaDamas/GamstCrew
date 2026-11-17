@@ -1,0 +1,21 @@
+name: test
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: NomaDamas/Gamst
+          ref: feat/temporal-contract
+          path: core
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install ruff==0.14.4
+      - run: ruff check gamstcrew tests
+      - run: PYTHONPATH=core:. python -m unittest discover -s tests -v
