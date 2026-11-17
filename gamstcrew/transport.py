@@ -63,9 +63,11 @@ class JsonlUnixServer:
         )
 
     async def _client(self, reader, writer):
-        request_id = None
         try:
             while True:
+                # Never carry a prior request's ID into a malformed next-line
+                # diagnostic; the connection is closed after a protocol error.
+                request_id = None
                 try:
                     line = await reader.readuntil(b"\n")
                 except asyncio.LimitOverrunError as exc:
