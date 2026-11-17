@@ -86,9 +86,10 @@ and packet protocol through the launch command.
 Docker containers use a Linux kernel. On macOS, Docker Desktop therefore runs
 the engine inside a Linux virtual machine. That VM consumes an allocated share
 of host RAM and CPU, adds image and filesystem sharing work, and can increase
-cold-start time. Camera, microphone, MPS/GPU and other host-device access also
-needs explicit Desktop permissions or a supported passthrough; it is not the
-same path as a native Apple Silicon process. These costs can dominate a small
+cold-start time. Camera and microphone access needs explicit Desktop
+permissions and often a host-side bridge; Apple GPU/MPS is generally not
+exposed to a Linux container, and device support is platform-specific. This is
+not the same path as a native Apple Silicon process. These costs can dominate a small
 local perception worker even though the container process itself is light.
 
 Native Linux does not need that extra Linux VM. Docker can then provide a
