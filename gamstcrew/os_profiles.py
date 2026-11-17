@@ -1,5 +1,7 @@
 from __future__ import annotations
 import platform
+import importlib.util
+import shutil
 from dataclasses import dataclass
 
 
@@ -23,6 +25,47 @@ class RuntimeProfile:
             "supports_cuda": self.supports_cuda,
             "supports_mps": self.supports_mps,
         }
+
+
+PROFILE_CATALOG = {
+    "macos-arm64": {"os": "darwin", "arch": "arm64", "accelerators": ("mps", "cpu"), "runtime": "uv+onnx+mlx+llama.cpp"},
+    "linux-cuda": {"os": "linux", "arch": "any", "accelerators": ("cuda", "cpu"), "runtime": "docker+nvidia-toolkit+triton"},
+    "linux-cpu": {"os": "linux", "arch": "any", "accelerators": ("cpu",), "runtime": "uv+onnx+llama.cpp"},
+    "windows-cpu-directml": {"os": "windows", "arch": "any", "accelerators": ("cpu", "directml"), "runtime": "uv+onnx+llama.cpp"},
+    "jetson-arm64": {"os": "linux", "arch": ("aarch64", "arm64"), "accelerators": ("cuda", "tensorrt"), "runtime": "jetpack+tensorrt+gstreamer"},
+}
+
+
+def profile_catalog():
+    """Return the declarative OS/runtime matrix without claiming host acceptance."""
+    return {name: dict(value) for name, value in PROFILE_CATALOG.items()}
+
+
+def provider_compatibility(*, provider: str, profile_name: str, installed: bool = False,
+                           runtime_compatible: bool = False, weight_ready: bool = False,
+                           benchmark_accepted: bool = False, available: bool | None = None):
+    """Report the five compatibility states used by the cross-runtime contract."""
+    if profile_name not in PROFILE_CATALOG:
+        raise ValueError("unknown profile")
+    if not isinstance(provider, str) or not provider:
+        raise ValueError("provider must be non-empty")
+    if available is None:
+        available = provider in {"onnxruntime", "llama.cpp", "python"}
+    return {"provider": provider, "profile": profile_name,
+            "available": bool(available), "installed": bool(installed),
+            "runtime-compatible": bool(runtime_compatible),
+            "weight-ready": bool(weight_ready),
+            "benchmark-accepted": bool(benchmark_accepted)}
+
+
+def install_diagnostics(*, profile_name: str, required_commands=(), required_modules=()):
+    """Collect deterministic preflight diagnostics; never installs or downloads."""
+    if profile_name not in PROFILE_CATALOG:
+        raise ValueError("unknown profile")
+    commands = {str(command): shutil.which(str(command)) is not None for command in required_commands}
+    modules = {str(module): importlib.util.find_spec(str(module)) is not None for module in required_modules}
+    return {"profile": profile_name, "commands": commands, "modules": modules,
+            "host_acceptance": "unmeasured", "weight_download": "not attempted"}
 
 
 def profile():

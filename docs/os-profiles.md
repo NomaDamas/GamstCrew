@@ -15,3 +15,13 @@ installed or benchmark-accepted evidence.
 example only: `model_revision: manifest-pending` and the zero hash are not a
 claim of installed weights or benchmark acceptance. A real profile must replace
 both with a pinned revision and dependency-lock SHA256 before launch.
+## Declarative profile catalog and diagnostics
+
+Crew exposes `profile_catalog()`, `provider_compatibility()` and
+`install_diagnostics()` for the five supported execution profiles: macOS
+Apple Silicon, Linux CUDA, Linux CPU, Windows CPU/DirectML and Jetson ARM64.
+Each provider reports `available`, `installed`, `runtime-compatible`,
+`weight-ready` and `benchmark-accepted`. Diagnostics only inspect commands and
+Python modules; they never install packages or download weights. Host
+acceptance remains explicitly `unmeasured` until a target machine run is
+attached.
