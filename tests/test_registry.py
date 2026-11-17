@@ -55,6 +55,16 @@ class Registry(unittest.TestCase):
             with self.assertRaises(ValueError):
                 read_profiles(p)[0].validate_for({"os": "darwin", "accelerator": "mps"})
 
+    def test_architecture_metadata_is_enforced(self):
+        with tempfile.TemporaryDirectory() as d:
+            value = self.profile()
+            value["arch"] = "x86_64"
+            p = Path(d) / "profiles.json"
+            p.write_text(json.dumps([value]))
+            descriptor = read_profiles(p)[0]
+            with self.assertRaises(RuntimeError):
+                descriptor.validate_for({"os": "darwin", "arch": "arm64", "accelerator": "mps"})
+
 
 if __name__ == "__main__":
     unittest.main()

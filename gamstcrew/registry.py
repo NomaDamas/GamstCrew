@@ -19,6 +19,7 @@ class ProviderProfile:
     artifact_sha256: str | None = None
     lockfile: str | None = None
     artifact: str | None = None
+    arch: str | None = None
 
     def verify_artifacts(self, root=None):
         """Verify declared files when a profile ships them; metadata alone is not evidence."""
@@ -48,6 +49,11 @@ class ProviderProfile:
             self.accelerator == "cuda" and host.get("accelerator") == "cuda-possible"
         ):
             raise RuntimeError(f"{self.name} requires accelerator {self.accelerator}")
+        if self.arch not in (None, "any"):
+            host_arch = str(host.get("arch", "")).lower()
+            allowed = {part.strip().lower() for part in str(self.arch).split(",") if part.strip()}
+            if host_arch not in allowed:
+                raise RuntimeError(f"{self.name} requires architecture {self.arch}")
         match = re.fullmatch(r"(?:python)?\s*(\d+)\.(\d+)(?:\.(\d+))?", self.python)
         if not match:
             raise ValueError(f"{self.name} has invalid python version metadata")
@@ -86,7 +92,7 @@ def read_profiles(path):
             ProviderProfile(
                 **{
                     key: item[key]
-                    for key in (*required, "artifact_sha256", "lockfile", "artifact")
+                    for key in (*required, "artifact_sha256", "lockfile", "artifact", "arch")
                     if key in item
                 }
             )
