@@ -29,6 +29,22 @@ CPU/RAM limits, and unsupported macOS/Windows/GPU cases are surfaced in the
 health report rather than claimed as enforced. Real host acceptance remains a
 separate gate.
 
+## Launcher preflight
+
+`gamstcrew.launcher.preflight_profile(profiles_path, name)` returns a bounded,
+JSON-safe report before a child process is started. The report includes the
+selected profile name, the host descriptor used for compatibility, each
+declared lock/artifact check (`verified`, `missing`, `mismatch` or
+`unmeasured`), a `ready`/`blocked` status and an actionable reason. Callers can
+show this report in install or run diagnostics without spawning a provider.
+
+`launch_profile()` uses the same preflight path and fails closed on a blocked
+report. Unknown profiles still raise `KeyError`; compatibility, malformed
+metadata and declared-file failures are retained in the report and surfaced as
+`RuntimeError` before manager registration. A `ready` report means only that
+metadata, host compatibility and declared local hashes passed; it does not
+claim model weights, benchmark acceptance or target-host evidence.
+
 ## Core provider runtime
 
 `CoreProviderRuntime` gives Crew explicit ownership of a real GAMST
