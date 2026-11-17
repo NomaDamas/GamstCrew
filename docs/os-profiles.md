@@ -20,6 +20,10 @@ Launch also validates declared architecture metadata and verifies every
 declared lockfile or artifact before starting a child process. A declared file
 that is missing or mismatched fails closed; profiles without local artifacts
 remain explicitly unmeasured and still require target-host acceptance.
+When the host descriptor includes its Python version, launch compares the
+major/minor pair with the profile's pinned Python metadata and rejects a
+mismatch before spawning a child. A host descriptor without Python remains
+backward-compatible and leaves that check unmeasured.
 ## Declarative profile catalog and diagnostics
 
 Crew exposes `profile_catalog()`, `provider_compatibility()` and
