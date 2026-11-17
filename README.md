@@ -57,7 +57,7 @@ These are related but different boundaries:
 - A **subprocess runtime** is the default process-level boundary. It has its
   own interpreter, imports and crash boundary, but shares the host kernel and
   ordinary host filesystem with the parent. Crew communicates over bounded
-  bounded stdin/stdout. The separate `JsonlUnixServer` seam provides local
+  stdin/stdout. The separate `JsonlUnixServer` seam provides local
   Unix-socket request/response transport when that adapter is selected. This
   is enough to keep incompatible Python packages apart and to supervise a
   worker cheaply.
