@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import base64
 from multiprocessing import shared_memory
 
 from .packet import EventPacket, MAX_PACKET_BYTES
@@ -109,14 +110,22 @@ def make_packet_transfer(packet: EventPacket | bytes, *, prefer_shared_memory: b
             return owner.descriptor(), owner
         except (OSError, BufferError):
             pass
-    return {"transport": "socket", "version": 1, "packet": raw}, None
+    return {"transport": "socket", "version": 1,
+            "packet_b64": base64.b64encode(raw).decode("ascii")}, None
 
 
 def read_packet_transfer(descriptor: dict[str, object]) -> EventPacket:
     if isinstance(descriptor, dict) and descriptor.get("transport") == "shared_memory":
         return read_shared_packet(descriptor)
-    if not isinstance(descriptor, dict) or set(descriptor) != {"transport", "version", "packet"}:
+    if not isinstance(descriptor, dict) or set(descriptor) != {"transport", "version", "packet_b64"}:
         raise ValueError("invalid packet transfer descriptor")
     if descriptor["transport"] != "socket" or descriptor["version"] != 1:
         raise ValueError("unsupported packet transfer")
-    return EventPacket.from_bytes(_canonical_packet(descriptor["packet"]))
+    encoded = descriptor["packet_b64"]
+    if not isinstance(encoded, str) or len(encoded) > MAX_PACKET_BYTES * 2:
+        raise ValueError("invalid socket packet encoding")
+    try:
+        raw = base64.b64decode(encoded.encode("ascii"), validate=True)
+    except (ValueError, UnicodeError):
+        raise ValueError("invalid socket packet encoding")
+    return EventPacket.from_bytes(_canonical_packet(raw))
