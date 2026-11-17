@@ -43,8 +43,10 @@ contract to Crew.
 
 On macOS, Docker Desktop adds a Linux virtual machine because containers need
 a Linux kernel. The VM's RAM/CPU allocation, image startup and host filesystem
-sharing add overhead, and camera, microphone and Apple GPU/MPS access require
-explicit device integration. For a small Apple Silicon perception worker, a
+sharing add overhead, and camera/microphone access needs a host bridge or
+supported integration. Apple GPU/MPS is generally unavailable inside the Linux
+container; it is not a general passthrough path. For a small Apple Silicon
+perception worker, a
 native host subprocess is therefore the normal profile. On native Linux there
 is no Docker Desktop Linux VM; Docker's value is instead the pinned userspace
 and NVIDIA Container Toolkit/CUDA boundary used by the `linux-cuda` profile.
