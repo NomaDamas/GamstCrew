@@ -3,7 +3,42 @@ import asyncio
 import json
 import os
 import tempfile
+import uuid
+from collections.abc import Mapping
 from .packet import MAX_PACKET_BYTES
+
+
+MAX_CORRELATION_ID = 128
+
+
+def _correlation_id(value):
+    """Validate the bounded request/response correlation token."""
+    if (not isinstance(value, str) or not 1 <= len(value) <= MAX_CORRELATION_ID
+            or value.strip() != value or "\n" in value or "\r" in value):
+        raise ValueError("request_id must be a bounded string")
+    return value
+
+
+def _decode(line):
+    """Decode one JSON object without duplicate keys or non-finite values."""
+    def reject_duplicates(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON field")
+            result[key] = value
+        return result
+
+    value = json.loads(
+        line,
+        object_pairs_hook=reject_duplicates,
+        parse_constant=lambda _: (_ for _ in ()).throw(
+            ValueError("non-finite JSON value")
+        ),
+    )
+    if not isinstance(value, Mapping):
+        raise ValueError("JSON request must be an object")
+    return value
 
 
 class JsonlUnixServer:
@@ -28,6 +63,7 @@ class JsonlUnixServer:
         )
 
     async def _client(self, reader, writer):
+        request_id = None
         try:
             while True:
                 try:
@@ -42,10 +78,18 @@ class JsonlUnixServer:
                     break
                 if len(line) > self.max_line or not line.endswith(b"\n"):
                     raise ValueError("line exceeds transport bound")
-                request = json.loads(line)
+                request = _decode(line)
+                request_id = _correlation_id(request.get("request_id"))
                 response = await asyncio.wait_for(
                     self.handler(request), timeout=self.handler_timeout_s
                 )
+                if not isinstance(response, Mapping):
+                    raise ValueError("handler response must be an object")
+                response = dict(response)
+                returned_id = response.get("request_id", request_id)
+                if _correlation_id(returned_id) != request_id:
+                    raise ValueError("response request_id does not match request")
+                response["request_id"] = request_id
                 raw = (
                     json.dumps(
                         response,
@@ -60,7 +104,10 @@ class JsonlUnixServer:
                 writer.write(raw)
                 await writer.drain()
         except (ValueError, json.JSONDecodeError, asyncio.TimeoutError) as exc:
-            writer.write(json.dumps({"error": str(exc)}).encode() + b"\n")
+            error = {"error": str(exc)}
+            if request_id is not None:
+                error["request_id"] = request_id
+            writer.write(json.dumps(error, allow_nan=False).encode() + b"\n")
             await writer.drain()
         finally:
             writer.close()
@@ -79,9 +126,23 @@ class JsonlUnixServer:
 async def jsonl_call(path, request, max_line=MAX_PACKET_BYTES, timeout_s=30.0):
     if type(timeout_s) not in (int, float) or timeout_s <= 0:
         raise ValueError("timeout_s must be positive")
-    reader, writer = await asyncio.open_unix_connection(path, limit=max_line)
+    if not isinstance(request, Mapping):
+        raise TypeError("request must be an object")
+    request = dict(request)
+    request_id = request.get("request_id")
+    if request_id is None:
+        request_id = uuid.uuid4().hex
+        request["request_id"] = request_id
+    _correlation_id(request_id)
     try:
-        raw = json.dumps(request, ensure_ascii=False, allow_nan=False).encode() + b"\n"
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_unix_connection(path, limit=max_line), timeout=timeout_s
+        )
+    except asyncio.TimeoutError as exc:
+        raise TimeoutError("Unix transport connection timed out") from exc
+    try:
+        raw = json.dumps(request, ensure_ascii=False, allow_nan=False,
+                         separators=(",", ":")).encode() + b"\n"
         if len(raw) > max_line:
             raise ValueError("request exceeds transport bound")
         writer.write(raw)
@@ -92,7 +153,15 @@ async def jsonl_call(path, request, max_line=MAX_PACKET_BYTES, timeout_s=30.0):
             raise ValueError("response exceeds transport bound") from exc
         if len(response) > max_line:
             raise ValueError("response exceeds transport bound")
-        return json.loads(response)
+        result = _decode(response)
+        # A malformed or oversized request can fail before its request ID is
+        # decoded. Preserve that bounded transport error for callers; valid
+        # responses and handler errors must still echo the request ID.
+        if "request_id" not in result and "error" in result:
+            return result
+        if _correlation_id(result.get("request_id")) != request_id:
+            raise ValueError("response request_id does not match request")
+        return result
     finally:
         writer.close()
         await writer.wait_closed()
