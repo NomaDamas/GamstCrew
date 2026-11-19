@@ -10,6 +10,16 @@
     "lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
   },
   {
+    "name": "streamingvlm-linux-cuda",
+    "runtime": "linux",
+    "python": "3.11",
+    "accelerator": "cuda",
+    "provider": "streamingvlm.local",
+    "model_revision": "mit-han-lab/streaming-vlm@PIN_OPERATOR_CHECKPOINT",
+    "license": "MIT-model;runtime-dependencies-verify",
+    "lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
     "name": "linux-cuda",
     "runtime": "linux",
     "python": "3.11",
