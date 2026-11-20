@@ -132,8 +132,11 @@ def main() -> None:
                 wall_ns = time.time_ns()
                 cursor += chunk
                 sample_rate = ring.sample_rate
+                if source.get("dtype") == "float32":  # providers that take normalized PCM
+                    data = data.astype("float32") / 32768.0
             sensor = SensorMetadata(source_id=spec.get("source_id", "media0"), sensor_id=sensor_id,
-                                    sequence=sequence, channels=channels, stream_epoch=stream_epoch)
+                                    sequence=sequence, channels=channels, stream_epoch=stream_epoch,
+                                    coordinate_frame=source.get("coordinate_frame"))
             sequence += 1
             frame = InputFrame(data=data, modality=kind, timestamp_ms=epoch_ms + pts_ms,
                                subject_id=spec.get("subject_id", "local-user"),

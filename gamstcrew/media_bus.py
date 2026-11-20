@@ -19,8 +19,24 @@ import numpy as np
 _HEADER = 8  # int64 words
 
 
+def _attach(name: str) -> shared_memory.SharedMemory:
+    """Map an existing segment without registering it for cleanup.
+
+    Before Python 3.13 every attaching process registers the segment with its
+    resource tracker, which unlinks it when that reader exits and breaks the
+    producer's own cleanup. Only the creating process owns the segment.
+    """
+    try:
+        return shared_memory.SharedMemory(name=name, track=False)
+    except TypeError:
+        from multiprocessing import resource_tracker
+        segment = shared_memory.SharedMemory(name=name)
+        resource_tracker.unregister(segment._name, "shared_memory")
+        return segment
+
+
 class FrameRing:
-    """Fixed-shape uint8 RGB frames. Header: write_seq, height, width, slots."""
+    """Fixed-shape uint8 BGR frames. Header: write_seq, height, width, slots."""
 
     SLOT_META = 3  # seq, pts_ms, wall_ns
 
@@ -40,6 +56,7 @@ class FrameRing:
         header[:] = 0
         header[0] = -1
         header[1:4] = (height, width, slots)
+        del header
         ring = cls(segment, owner=True)
         for slot in range(slots):
             ring._meta(slot)[:] = (-1, 0, 0)
@@ -47,7 +64,7 @@ class FrameRing:
 
     @classmethod
     def attach(cls, name: str) -> "FrameRing":
-        return cls(shared_memory.SharedMemory(name=name), owner=False)
+        return cls(_attach(name), owner=False)
 
     def _meta(self, slot: int) -> np.ndarray:
         return np.ndarray((self.SLOT_META,), np.int64, self.segment.buf, self.base + slot * self.slot_bytes)
@@ -98,7 +115,7 @@ class FrameRing:
 
 
 class AudioRing:
-    """Mono int16 PCM. Header: total_samples_written, sample_rate, capacity, first_pts_ms, wall_ns_of_last_write."""
+    """Mono int16 PCM. Header: total_samples_written, sample_rate, capacity, -, wall_ns_of_last_write."""
 
     def __init__(self, segment: shared_memory.SharedMemory, owner: bool):
         self.segment, self.owner = segment, owner
@@ -113,11 +130,12 @@ class AudioRing:
         header = np.ndarray((_HEADER,), np.int64, segment.buf, 0)
         header[:] = 0
         header[1:3] = (sample_rate, capacity)
+        del header
         return cls(segment, owner=True)
 
     @classmethod
     def attach(cls, name: str) -> "AudioRing":
-        return cls(shared_memory.SharedMemory(name=name), owner=False)
+        return cls(_attach(name), owner=False)
 
     @property
     def written(self) -> int:
