@@ -214,7 +214,7 @@ CPU_MEASURED = {
     "vram": "VERIFY.md measured 0 MiB GPU on RTX PRO 6000 host (CPU worker)",
     "disk": "estimated; pinned artifact sizes are exact where supplied",
 }
-BASE = ("gamst-sdk==0.4.0",)
+BASE = ("gamst-sdk==0.5.0",)  # first release with vision.rotation and ProfileRuntime
 TORCH = ("torch==2.8.0", "torchvision==0.23.0")
 MEDIAPIPE = ("mediapipe==0.10.35", "numpy>=1.24")
 RF_NANO_SHA = "d8d6b9ee57d4d0ed2b1f305163624712a0532cb7bce0c747317984fc5457440d"
@@ -262,9 +262,9 @@ DETECTION = {
         ("ultralytics==8.4.212", *TORCH, "numpy>=1.24", "Pillow>=10",
          "opencv-python>=4.8,<5",
          "git+https://github.com/ultralytics/CLIP.git@7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40"),
-        ("cpu", "cuda"), 2048, 1024, 4500, ESTIMATED,
+        ("cpu", "mps", "cuda"), 2048, 1024, 4500, ESTIMATED,
         "Ultralytics AGPL-3.0; MobileCLIP/weights terms require review",
-        "coin_halo.py pins assets; trained target-host acceptance not established",
+        "GAMST #357: real-clip p50 45.7 ms on Apple MPS, 157.1 ms on CPU; trained target-host acceptance not established",
         (_weight("yoloe-26s-seg.pt", "https://github.com/ultralytics/assets/releases/download/v8.4.0/yoloe-26s-seg.pt", "48f24206bc8680d60cbbfa296b0140da849669b9515058b72f5a945142df0654", 50 * MIB),
          _weight("mobileclip2_b.ts", "https://github.com/ultralytics/assets/releases/download/v8.4.0/mobileclip2_b.ts", MOBILECLIP_SHA, 350 * MIB)),
         environment="yoloe", config={"mode": "text", "labels": ["object"], "encoder_family": "mobileclip2:b", "device": "cpu"},
@@ -274,7 +274,7 @@ DETECTION = {
         ("ultralytics==8.4.212", *TORCH, "numpy>=1.24", "Pillow>=10",
          "opencv-python>=4.8,<5",
          "git+https://github.com/ultralytics/CLIP.git@7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40"),
-        ("cpu", "cuda"), 4096, 1710, 5000,
+        ("cpu", "mps", "cuda"), 4096, 1710, 5000,
         {"ram": "estimated", "vram": "VERIFY.md measured 1710 MiB", "disk": "estimated"},
         "Ultralytics AGPL-3.0; MobileCLIP/weights terms require review",
         "VERIFY.md: real-video success, 12.0 ms compute, 16.9 ms p95",
