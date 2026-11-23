@@ -11,10 +11,11 @@ projects have deliberately different responsibilities:
   bounds queues and transport, records health, and accounts for declared
   resources.
 
-Crew does not replace the SDK's provider contract, install model weights, or
-turn profile metadata into host acceptance evidence. A profile is ready only
-after its declared compatibility and artifact checks pass; model quality and
-target-host acceptance remain separate gates.
+Crew does not replace the SDK's provider contract or turn profile metadata into
+host acceptance evidence. The explicit [agentic setup](docs/agentic-setup.md)
+can install a reviewed plan and SHA256-verified weights, but a profile is ready
+only after its declared compatibility and artifact checks pass; model quality
+and target-host acceptance remain separate gates.
 
 ## Runtime shape
 
