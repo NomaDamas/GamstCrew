@@ -11,7 +11,7 @@ planning reservations, not a benchmark or host-acceptance claim.
 |---|---|---|
 | `vision.detect` | `rfdetr.nano`, `rfdetr.large`, optional `yoloe.26s` / `yoloe.26x`, `custom` fine-tuned Nano checkpoint | `rfdetr.nano`, `rfdetr.large`, `yoloe.local` |
 | `vision.track` | `opencv.flow` | `opencv.flow` |
-| `vision.rotation` | `object.rotations`; no learned model, uses detection/tracking or ROI/motion geometry | `object.rotations` |
+| `vision.rotation` | `gamst.rotation`; no learned model, GAMST's own per-frame tracker over detections, an ROI or motion regions | `vision.rotation` |
 | `vision.pose` | `mediapipe.pose_lite`, `mediapipe.pose_heavy` | `mediapipe.body.video` |
 | `vision.hand` | `mediapipe.hand` | `mediapipe.hand.video` |
 | `vision.face` | `mediapipe.face` | `mediapipe.face.video` |
@@ -54,7 +54,7 @@ rotation requires at least 160 fps capture; about 240 fps is recommended for a
 
 Goals expand as follows, with recursive role dependencies deduplicated:
 
-- `rotation`: detection + tracking + rotation
+- `rotation`: detection + rotation (the rotation capability tracks every frame itself)
 - `speech`: VAD + ASR
 - `audio`: VAD + ASR + audio events + prosody
 - `scene`: detection + semantic scene

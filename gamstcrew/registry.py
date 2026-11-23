@@ -318,9 +318,9 @@ ROLES = {
     "vision.track": Role("vision.track", "OpenCV motion/track continuity", {
         "opencv.flow": _candidate("opencv.flow", "opencv.flow", ("opencv-python>=4.8,<5", "numpy>=1.24"), ("cpu",), 256, 0, 150, ESTIMATED, "Apache-2.0;OpenCV:Apache-2.0", "GAMST deterministic adapter; target-video quality unverified", environment="opencv", config={"method": "lucas_kanade"}),
     }, _defaults("opencv.flow"), ("vision.detect",)),
-    "vision.rotation": Role("vision.rotation", "Model-free angular rotation from tracks/ROI/motion", {
-        "object.rotations": _candidate("object.rotations", "object.rotations", (), ("cpu",), 128, 0, 0, ESTIMATED, "Apache-2.0", "GAMST geometric reducer; no learned model", environment="builtin"),
-    }, _defaults("object.rotations"), ("vision.detect", "vision.track"), 160),
+    "vision.rotation": Role("vision.rotation", "Rotation counting (in-plane turns and flips) from detections, an ROI or motion", {
+        "gamst.rotation": _candidate("gamst.rotation", "vision.rotation", ("opencv-python>=4.8,<5", "numpy>=1.24"), ("cpu",), 256, 0, 150, ESTIMATED, "Apache-2.0;OpenCV:Apache-2.0", "GAMST per-frame tracker + spin/angular counters; no learned model; count accuracy unvalidated", environment="opencv"),
+    }, _defaults("gamst.rotation"), ("vision.detect",), 160),
     "vision.pose": Role("vision.pose", "Body pose landmarks", {
         "mediapipe.pose_lite": _mediapipe("pose_lite", "pose_landmarker_lite.task", POSE_LITE_URL, "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a", 5777746, "scripts/local_models.py pinned; real target-host acceptance unmeasured"),
         "mediapipe.pose_heavy": _mediapipe("pose_heavy", "pose_landmarker_heavy.task", POSE_HEAVY_URL, "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b", 30 * MIB, "VERIFY.md: real-video CPU success, 32.3 ms compute, 91.6 ms p95"),
@@ -371,7 +371,7 @@ ROLES = {
 
 
 GOALS = {
-    "rotation": ("vision.detect", "vision.track", "vision.rotation"),
+    "rotation": ("vision.detect", "vision.rotation"),
     "speech": ("audio.vad", "audio.asr"),
     "audio": ("audio.vad", "audio.asr", "audio.events", "audio.prosody"),
     "scene": ("vision.detect", "vision.semantic_scene"),

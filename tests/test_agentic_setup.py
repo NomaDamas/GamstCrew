@@ -28,7 +28,7 @@ def host(tier="apple-mps", **changes):
 class Planning(unittest.TestCase):
     def test_mac_rotation_defaults_dependencies_and_totals(self):
         plan = make_plan("rotation", hardware=host())
-        self.assertEqual(set(plan["roles"]), {"vision.detect", "vision.track", "vision.rotation"})
+        self.assertEqual(set(plan["roles"]), {"vision.detect", "vision.rotation"})
         self.assertEqual(plan["roles"]["vision.detect"]["model"], "rfdetr.nano")
         self.assertEqual(plan["roles"]["vision.detect"]["config"]["device"], "mps")
         self.assertGreater(plan["totals"]["disk_bytes"], 0)
